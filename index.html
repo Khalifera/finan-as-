@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestor Financeiro</title>
+    <title>Gestor V27.8 - Recorrência</title>
     
     <meta name="theme-color" content="#2563eb">
     <link rel="manifest" href="manifest.json">
@@ -12,11 +12,15 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* CSS IDÊNTICO AO ANTERIOR, APENAS OMITIDO PARA ECONOMIZAR ESPAÇO NA RESPOSTA */
-        /* COLE AQUI TODO O CSS DA VERSÃO V27.7 QUE VOCÊ JÁ TEM */
         :root { --primary: #2563eb; --green: #10b981; --red: #ef4444; --orange: #f97316; --purple: #8b5cf6; --bg: #f1f5f9; --card: #ffffff; --text: #334155; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; user-select: none; -webkit-tap-highlight-color: transparent; }
         .container { background: var(--card); width: 100%; max-width: 600px; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); position: relative; }
+        
+        /* Botões de Topo */
+        .top-btns { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; }
+        .config-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.6; transition: 0.2s; }
+        .config-btn:hover { opacity: 1; transform: scale(1.1); }
+
         .result-card { color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: relative; overflow: hidden; transition: background 0.3s; }
         .bg-safe { background-color: var(--green); } .bg-warning { background-color: var(--orange); } .bg-danger { background-color: var(--red); }
         .dash-tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
@@ -71,14 +75,17 @@
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 20px; }
         .day { background: white; border: 1px solid #cbd5e1; padding: 8px 0; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-align: center; }
         .day.active { background: var(--primary); color: white; } .day.today { border: 2px dashed var(--primary); }
+        
+        /* Modais */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal { background: white; padding: 25px; border-radius: 16px; width: 90%; max-width: 550px; max-height: 90vh; overflow-y: auto; }
-        .config-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.5; }
         .modal-opt { margin-bottom: 15px; }
         .modal-opt label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #64748b; }
         .btn-confirm { background: var(--green); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; }
         .btn-cancel { background: #e2e8f0; color: #64748b; border: none; padding: 10px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; }
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        
+        /* PDF Styles */
         .report-header { text-align: center; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
         .report-title { margin: 0; color: var(--primary); font-size: 1.4rem; }
         .report-subtitle { color: #64748b; font-size: 0.9rem; margin-top: 5px; }
@@ -99,13 +106,18 @@
         .rep-total-final { font-size: 1.1rem; font-weight: 800; color: #334155; margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
         .pdf-btn { width: 100%; background: #334155; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .pdf-btn:hover { background: #1e293b; }
+        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <button class="config-btn" onclick="openSetupModal()">⚙️</button>
+        <div class="top-btns">
+            <button class="config-btn" onclick="openFixedModal()" title="Despesas Fixas">📅</button>
+            <button class="config-btn" onclick="openSetupModal()" title="Configurações">⚙️</button>
+        </div>
+
         <div class="limit-container">
             <div class="limit-header"><span id="labelLimitTitle">Limite Global</span><span id="txtCreditLimit">...</span></div>
             <div class="limit-bg"><div id="barCredit" class="limit-fill"></div></div>
@@ -202,14 +214,49 @@
     </div>
 
     <div id="reportModal" class="modal-overlay"><div class="modal"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px"><button onclick="document.getElementById('reportModal').style.display='none'" style="background:none; border:none; font-size:1rem; cursor:pointer; color:#64748b">✕ Fechar</button></div><div id="printableArea" style="padding:10px; background:white; width:100%;"><div class="report-header"><h3 class="report-title" id="repTitle">Extrato Mensal</h3><div class="report-subtitle" id="repSubtitle">...</div></div><div class="rep-filters" data-html2canvas-ignore="true"><button class="rep-btn active" onclick="updateReport('all')">Tudo</button><button class="rep-btn" onclick="updateReport('in')">Entradas</button><button class="rep-btn" onclick="updateReport('out')">Saídas</button></div><div id="reportContent"></div></div><button class="pdf-btn" onclick="exportPDF()">📄 Baixar PDF</button></div></div>
+    
     <div id="setupModal" class="modal-overlay"><div class="modal"><h3>Configurações</h3><div class="modal-opt"><label>Limite Cartão</label><input type="number" id="setupLimit"></div><div class="modal-opt"><label>Meta Diária</label><input type="number" id="setupGoal"></div><button class="btn-confirm" onclick="saveSetup()">Salvar</button></div></div>
+    
     <div id="buyModal" class="modal-overlay"><div class="modal"><h3>Comprar Item</h3><p id="modalItemName" style="color:var(--primary); font-weight:bold; margin-bottom:15px">...</p><div class="modal-opt"><label>Pagamento:</label><select id="modalType" onchange="toggleInstallments()"><option value="debit">Débito (À vista)</option><option value="credit">Crédito (Cartão)</option></select></div><div class="modal-opt"><label>Categoria:</label><select id="modalCat" style="width:100%; padding:10px;"><option value="🏠 Casa">🏠 Casa</option><option value="🍔 Alimentação">🍔 Alimentação</option><option value="🚗 Transporte">🚗 Transporte</option><option value="👤 Pessoal">👤 Pessoal</option><option value="🎟️ Ingressos">🎟️ Ingressos</option><option value="🍻 Bebidas">🍻 Bebidas</option><option value="🎉 Diversão">🎉 Diversão</option></select></div><div id="creditOptions" style="display:none;"><div class="modal-opt"><label>Parcelas:</label><input type="number" id="modalInstallments" value="1" min="1"></div><div class="modal-opt"><label>Início:</label><input type="month" id="modalStartMonth"></div></div><div class="modal-btns"><button class="btn-cancel" onclick="closeBuyModal()">Cancelar</button><button class="btn-confirm" onclick="confirmBuy()">Confirmar Compra</button></div></div></div>
 
+    <div id="fixedModal" class="modal-overlay">
+        <div class="modal">
+            <h3>Despesas Fixas (Recorrentes)</h3>
+            <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px">Itens adicionados aqui podem ser lançados automaticamente todo mês.</p>
+            
+            <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-bottom:15px;">
+                <div class="input-row">
+                    <input id="fixName" placeholder="Ex: Aluguel" style="flex:2">
+                    <input type="number" id="fixVal" placeholder="Valor" style="flex:1; min-width:60px">
+                </div>
+                <div class="input-row">
+                    <input type="number" id="fixDay" placeholder="Dia" min="1" max="31" style="width:60px">
+                    <select id="fixType" style="flex:1">
+                        <option value="debit">Débito (Conta)</option>
+                        <option value="credit">Crédito (Cartão)</option>
+                    </select>
+                    <select id="fixCat" style="flex:1">
+                        <option value="🏠 Casa">🏠 Casa</option>
+                        <option value="🍔 Alimentação">🍔 Alimentação</option>
+                        <option value="🚗 Transporte">🚗 Transporte</option>
+                        <option value="👤 Pessoal">👤 Pessoal</option>
+                    </select>
+                </div>
+                <button class="btn-confirm" onclick="addFixed()">Adicionar à Lista</button>
+            </div>
+
+            <ul id="listFixed" class="list" style="max-height:200px; overflow-y:auto; margin-bottom:15px"></ul>
+            
+            <button class="btn-cancel" onclick="document.getElementById('fixedModal').style.display='none'">Fechar</button>
+        </div>
+    </div>
+
     <script>
-        // ... COLE AQUI TODO O SEU JAVASCRIPT DA VERSÃO V27.7 ...
         let dataNav = new Date(); const hoje = new Date(); let diaSel = hoje.getDate();
         let settings = { limit: 4000, dailyGoal: 30 };
-        let dbGlobal = { wishes: [] }; let dbMensal = {};
+        // ATUALIZAÇÃO DB: Agora tem 'fixed'
+        let dbGlobal = { wishes: [], fixed: [] }; 
+        let dbMensal = {};
         let myChart = null; let selectedWishIndex = null;
         let chartType = 'bar';
         let currentReportFilter = 'all';
@@ -217,23 +264,116 @@
 
         window.onload = () => {
             const s = localStorage.getItem('appV25_settings'); if(s) settings = JSON.parse(s);
-            const g = localStorage.getItem('appV25_g'); if(g) dbGlobal = JSON.parse(g);
+            const g = localStorage.getItem('appV25_g'); 
+            if(g) {
+                dbGlobal = JSON.parse(g);
+                if(!dbGlobal.fixed) dbGlobal.fixed = []; // Garante compatibilidade com versões antigas
+            }
+            
             const y = dataNav.getFullYear(); const m = String(dataNav.getMonth() + 1).padStart(2, '0');
             document.getElementById('modalStartMonth').value = `${y}-${m}`;
-            render();
             
-            // REGISTRO DO SERVICE WORKER (PWA)
+            render();
+            checkFixedExpenses(); // VERIFICA RECORRÊNCIA AO INICIAR
+
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('App Instalável Pronto!', reg))
-                .catch(err => console.log('Erro PWA:', err));
+                navigator.serviceWorker.register('sw.js').catch(console.log);
             }
         };
 
-        // ... RESTANTE DAS FUNÇÕES (getKey, getDB, render, etc.) SÃO IGUAIS AO CÓDIGO ANTERIOR ...
-        // CERTIFIQUE-SE DE COPIAR TODAS AS FUNÇÕES JS DO CÓDIGO DA VERSÃO V27.7
-        // Vou recolocar as essenciais para garantir que funcione se você só copiar isso:
-        
+        // --- FUNÇÕES DE RECORRÊNCIA ---
+        function openFixedModal() {
+            renderFixedList();
+            document.getElementById('fixedModal').style.display = 'flex';
+        }
+
+        function addFixed() {
+            const n = document.getElementById('fixName').value;
+            const v = parseFloat(document.getElementById('fixVal').value);
+            const d = parseInt(document.getElementById('fixDay').value) || 1;
+            const t = document.getElementById('fixType').value;
+            const c = document.getElementById('fixCat').value;
+
+            if(n && v > 0) {
+                dbGlobal.fixed.push({n, v, d, t, c});
+                localStorage.setItem('appV25_g', JSON.stringify(dbGlobal));
+                
+                document.getElementById('fixName').value = '';
+                document.getElementById('fixVal').value = '';
+                renderFixedList();
+            } else { alert('Preencha nome e valor.'); }
+        }
+
+        function delFixed(i) {
+            dbGlobal.fixed.splice(i, 1);
+            localStorage.setItem('appV25_g', JSON.stringify(dbGlobal));
+            renderFixedList();
+        }
+
+        function renderFixedList() {
+            const ul = document.getElementById('listFixed');
+            ul.innerHTML = "";
+            if(dbGlobal.fixed.length === 0) {
+                ul.innerHTML = "<li style='text-align:center; color:#999; padding:10px'>Nenhuma despesa fixa cadastrada.</li>";
+                return;
+            }
+            dbGlobal.fixed.forEach((it, i) => {
+                const typeIcon = it.t === 'debit' ? '🔴' : '🟠';
+                ul.innerHTML += `
+                <li class="item" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-weight:bold; font-size:0.9rem">${typeIcon} ${it.n}</div>
+                        <div style="font-size:0.75rem; color:#64748b">Dia ${it.d} • ${it.c}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <strong>${fmt(it.v)}</strong>
+                        <span class="del" onclick="delFixed(${i})">✕</span>
+                    </div>
+                </li>`;
+            });
+        }
+
+        function checkFixedExpenses() {
+            // Verifica se estamos no mês atual (real) ou navegando
+            // Lógica: Só sugere lançar se abrir o app no mês corrente e ainda não tiver lançado
+            const k = getKey(hoje.getFullYear(), hoje.getMonth());
+            
+            // Pega o DB do mês ATUAL (não do navegado)
+            let dbAtual = localStorage.getItem(k) ? JSON.parse(localStorage.getItem(k)) : null;
+            
+            // Se não existir DB para este mês, cria um básico para poder checar
+            if (!dbAtual) dbAtual = { in:[], debit:[], credit:[], invoicePaid:0, fixedLaunched: false };
+
+            // Se tem itens fixos cadastrados E ainda não foram lançados neste mês
+            if (dbGlobal.fixed.length > 0 && !dbAtual.fixedLaunched) {
+                if(confirm(`📅 Novo Mês Detectado!\n\nExistem ${dbGlobal.fixed.length} despesas fixas cadastradas (Total: ${fmt(dbGlobal.fixed.reduce((a,b)=>a+b.v,0))}).\n\nDeseja lançar elas no extrato de agora?`)) {
+                    
+                    dbGlobal.fixed.forEach(it => {
+                        if(it.t === 'debit') {
+                            dbAtual.debit.push({ n: it.n + ' (Fixo)', v: it.v, d: it.d, c: it.c });
+                        } else {
+                            dbAtual.credit.push({ n: it.n + ' (Fixo)', v: it.v, d: it.d, c: it.c });
+                        }
+                    });
+                    
+                    dbAtual.fixedLaunched = true;
+                    localStorage.setItem(k, JSON.stringify(dbAtual));
+                    
+                    // Se estivermos vendo o mês atual, atualiza a tela
+                    if(dataNav.getMonth() === hoje.getMonth() && dataNav.getFullYear() === hoje.getFullYear()) {
+                        render();
+                    }
+                    alert("Despesas lançadas com sucesso!");
+                } else {
+                    // Se o usuário negar, marcamos como lançado para não perguntar de novo? 
+                    // Melhor não, ele pode querer lançar depois. Mas para não ficar chato, vamos ignorar por enquanto.
+                    // Se quiser "cancelar para sempre neste mês", descomente a linha abaixo:
+                    // dbAtual.fixedLaunched = true; localStorage.setItem(k, JSON.stringify(dbAtual));
+                }
+            }
+        }
+
+        // --- FUNÇÕES PADRÃO (Mesmas da versão anterior) ---
         function getKey(a,m) { return `appV25_m_${a}_${m}`; }
         function getDB(a, m) {
             const k = getKey(a, m);
@@ -244,11 +384,6 @@
             return dbMensal[k];
         }
 
-        // ... (MANTENHA TODAS AS OUTRAS FUNÇÕES AQUI: openReport, updateReport, exportPDF, etc) ...
-        // Para economizar espaço na resposta, assumo que você tem o bloco JS completo da V27.7.
-        // Se precisar do JS completo novamente, me avise.
-        
-        // APENAS REPETINDO O RENDER E CHART PARA GARANTIR FUNCIONAMENTO NO EXEMPLO
         function setChartType(type) {
             chartType = type;
             document.querySelectorAll('.chart-toggle').forEach(b => b.classList.remove('active'));
@@ -323,8 +458,6 @@
             return { sobra: sobraTransportada, divida: dividaTransportada };
         }
         
-        // (Inclua aqui o restante das funções: render, add, del, openBuyModal, etc. que já existem no seu arquivo)
-        // ... (Código omitido para brevidade, use o código V27.7 completo) ...
         function render() {
             const a = dataNav.getFullYear(); const m = dataNav.getMonth();
             const d = getDB(a, m);
@@ -411,8 +544,6 @@
         function switchTab(t) { document.getElementById('viewBudget').classList.toggle('active', t==='budget'); document.getElementById('viewWishes').classList.toggle('active', t==='wishes'); document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0 && t==='budget') || (i===1 && t==='wishes'))); }
         function openSetupModal() { document.getElementById('setupModal').style.display='flex'; document.getElementById('setupLimit').value=settings.limit; document.getElementById('setupGoal').value=settings.dailyGoal; }
         function saveSetup() { settings.limit = parseFloat(document.getElementById('setupLimit').value) || 4000; settings.dailyGoal = parseFloat(document.getElementById('setupGoal').value) || 30; localStorage.setItem('appV25_settings', JSON.stringify(settings)); document.getElementById('setupModal').style.display='none'; render(); }
-        
-        // MANTENHA AS FUNÇÕES DE EXPORTAR PDF (exportPDF) E SIMULATED BALANCE (getSimulatedBalance) E GENERATE ADVICE DO CÓDIGO ORIGINAL
         function getSimulatedBalance(year, month) {
             const k = getKey(year, month);
             if(localStorage.getItem(k)) {
@@ -450,8 +581,6 @@
             return html + "</div>";
         }
         function exportPDF() {
-            // ... (Use a função exportPDF corrigida V27.5 que eu enviei anteriormente) ...
-            // Vou colocá-la compactada aqui para garantir funcionamento:
             const element = document.getElementById('printableArea'); const clone = element.cloneNode(true);
             const container = document.createElement('div'); container.style.position = 'absolute'; container.style.left = '-9999px'; container.style.top = '0'; container.style.width = '794px'; container.style.zIndex = '-1';
             clone.style.width = '100%'; clone.style.height = 'auto'; clone.style.minHeight = '100%'; clone.style.maxHeight = 'none'; clone.style.overflow = 'visible';
