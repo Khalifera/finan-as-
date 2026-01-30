@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestor V27.8 - Recorrência</title>
+    <title>Gestor Financeiro Pessoal</title>
     
     <meta name="theme-color" content="#2563eb">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -27,6 +28,7 @@
         .dash-tab-btn { background: rgba(255,255,255,0.2); border: none; padding: 5px 15px; border-radius: 20px; color: white; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; }
         .dash-tab-btn.active { background: white; color: var(--primary); }
         .dash-view { display: none; animation: fadeIn 0.3s; } .dash-view.active { display: block; }
+        
         .chart-wrapper { width: 100%; min-height: 280px; height: auto; background-color: #f8fafc; border-radius: 8px; padding: 15px; box-sizing: border-box; color: #333; position: relative; display: flex; flex-direction: column; }
         .chart-controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; flex-shrink: 0; }
         .chart-toggle { background: #e2e8f0; border: none; padding: 4px 12px; border-radius: 15px; font-size: 0.75rem; cursor: pointer; color: #64748b; font-weight: bold; }
@@ -34,6 +36,7 @@
         .pie-filters { display: flex; justify-content: center; gap: 5px; margin-bottom: 10px; flex-shrink: 0; }
         .pie-filter-btn { background: white; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; cursor: pointer; color: #64748b; font-weight: bold; }
         .pie-filter-btn.active { background: #64748b; color: white; border-color: #64748b; }
+        
         .big-val { font-size: 2.2rem; font-weight: 800; display: block; margin-top: 5px; }
         .sub-row { display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); }
         .limit-container { margin-bottom: 20px; background: #fff7ed; padding: 15px; border-radius: 12px; border: 1px solid #ffedd5; }
@@ -254,7 +257,6 @@
     <script>
         let dataNav = new Date(); const hoje = new Date(); let diaSel = hoje.getDate();
         let settings = { limit: 4000, dailyGoal: 30 };
-        // ATUALIZAÇÃO DB: Agora tem 'fixed'
         let dbGlobal = { wishes: [], fixed: [] }; 
         let dbMensal = {};
         let myChart = null; let selectedWishIndex = null;
@@ -267,270 +269,63 @@
             const g = localStorage.getItem('appV25_g'); 
             if(g) {
                 dbGlobal = JSON.parse(g);
-                if(!dbGlobal.fixed) dbGlobal.fixed = []; // Garante compatibilidade com versões antigas
+                if(!dbGlobal.fixed) dbGlobal.fixed = []; 
             }
             
             const y = dataNav.getFullYear(); const m = String(dataNav.getMonth() + 1).padStart(2, '0');
             document.getElementById('modalStartMonth').value = `${y}-${m}`;
             
             render();
-            checkFixedExpenses(); // VERIFICA RECORRÊNCIA AO INICIAR
+            checkFixedExpenses(); 
+            checkShortcuts();
 
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js').catch(console.log);
             }
         };
 
-        // --- FUNÇÕES DE RECORRÊNCIA ---
-        function openFixedModal() {
-            renderFixedList();
-            document.getElementById('fixedModal').style.display = 'flex';
-        }
-
-        function addFixed() {
-            const n = document.getElementById('fixName').value;
-            const v = parseFloat(document.getElementById('fixVal').value);
-            const d = parseInt(document.getElementById('fixDay').value) || 1;
-            const t = document.getElementById('fixType').value;
-            const c = document.getElementById('fixCat').value;
-
-            if(n && v > 0) {
-                dbGlobal.fixed.push({n, v, d, t, c});
-                localStorage.setItem('appV25_g', JSON.stringify(dbGlobal));
-                
-                document.getElementById('fixName').value = '';
-                document.getElementById('fixVal').value = '';
-                renderFixedList();
-            } else { alert('Preencha nome e valor.'); }
-        }
-
-        function delFixed(i) {
-            dbGlobal.fixed.splice(i, 1);
-            localStorage.setItem('appV25_g', JSON.stringify(dbGlobal));
-            renderFixedList();
-        }
-
-        function renderFixedList() {
-            const ul = document.getElementById('listFixed');
-            ul.innerHTML = "";
-            if(dbGlobal.fixed.length === 0) {
-                ul.innerHTML = "<li style='text-align:center; color:#999; padding:10px'>Nenhuma despesa fixa cadastrada.</li>";
-                return;
-            }
-            dbGlobal.fixed.forEach((it, i) => {
-                const typeIcon = it.t === 'debit' ? '🔴' : '🟠';
-                ul.innerHTML += `
-                <li class="item" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <div style="font-weight:bold; font-size:0.9rem">${typeIcon} ${it.n}</div>
-                        <div style="font-size:0.75rem; color:#64748b">Dia ${it.d} • ${it.c}</div>
-                    </div>
-                    <div style="text-align:right">
-                        <strong>${fmt(it.v)}</strong>
-                        <span class="del" onclick="delFixed(${i})">✕</span>
-                    </div>
-                </li>`;
-            });
-        }
-
-        function checkFixedExpenses() {
-            // Verifica se estamos no mês atual (real) ou navegando
-            // Lógica: Só sugere lançar se abrir o app no mês corrente e ainda não tiver lançado
-            const k = getKey(hoje.getFullYear(), hoje.getMonth());
-            
-            // Pega o DB do mês ATUAL (não do navegado)
-            let dbAtual = localStorage.getItem(k) ? JSON.parse(localStorage.getItem(k)) : null;
-            
-            // Se não existir DB para este mês, cria um básico para poder checar
-            if (!dbAtual) dbAtual = { in:[], debit:[], credit:[], invoicePaid:0, fixedLaunched: false };
-
-            // Se tem itens fixos cadastrados E ainda não foram lançados neste mês
-            if (dbGlobal.fixed.length > 0 && !dbAtual.fixedLaunched) {
-                if(confirm(`📅 Novo Mês Detectado!\n\nExistem ${dbGlobal.fixed.length} despesas fixas cadastradas (Total: ${fmt(dbGlobal.fixed.reduce((a,b)=>a+b.v,0))}).\n\nDeseja lançar elas no extrato de agora?`)) {
-                    
-                    dbGlobal.fixed.forEach(it => {
-                        if(it.t === 'debit') {
-                            dbAtual.debit.push({ n: it.n + ' (Fixo)', v: it.v, d: it.d, c: it.c });
-                        } else {
-                            dbAtual.credit.push({ n: it.n + ' (Fixo)', v: it.v, d: it.d, c: it.c });
-                        }
-                    });
-                    
-                    dbAtual.fixedLaunched = true;
-                    localStorage.setItem(k, JSON.stringify(dbAtual));
-                    
-                    // Se estivermos vendo o mês atual, atualiza a tela
-                    if(dataNav.getMonth() === hoje.getMonth() && dataNav.getFullYear() === hoje.getFullYear()) {
-                        render();
+        // --- ATALHOS DE ÍCONE ---
+        function checkShortcuts() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const acao = urlParams.get('acao');
+            if (acao) {
+                switchTab('budget');
+                setTimeout(() => {
+                    let inputFoco = null; let boxFoco = null;
+                    if (acao === 'nova_entrada') { inputFoco = document.getElementById('inVal'); boxFoco = document.querySelector('.box-green'); } 
+                    else if (acao === 'novo_debito') { inputFoco = document.getElementById('debVal'); boxFoco = document.querySelector('.box-red'); } 
+                    else if (acao === 'novo_credito') { inputFoco = document.getElementById('credVal'); boxFoco = document.querySelector('.box-orange'); }
+                    if (inputFoco && boxFoco) {
+                        boxFoco.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        inputFoco.focus();
+                        boxFoco.style.transform = "scale(1.02)"; boxFoco.style.transition = "0.3s";
+                        setTimeout(() => boxFoco.style.transform = "scale(1)", 300);
                     }
-                    alert("Despesas lançadas com sucesso!");
-                } else {
-                    // Se o usuário negar, marcamos como lançado para não perguntar de novo? 
-                    // Melhor não, ele pode querer lançar depois. Mas para não ficar chato, vamos ignorar por enquanto.
-                    // Se quiser "cancelar para sempre neste mês", descomente a linha abaixo:
-                    // dbAtual.fixedLaunched = true; localStorage.setItem(k, JSON.stringify(dbAtual));
-                }
+                }, 500);
             }
         }
 
-        // --- FUNÇÕES PADRÃO (Mesmas da versão anterior) ---
+        // --- RECORRÊNCIA ---
+        function openFixedModal() { renderFixedList(); document.getElementById('fixedModal').style.display = 'flex'; }
+        function addFixed() { const n=document.getElementById('fixName').value; const v=parseFloat(document.getElementById('fixVal').value); const d=parseInt(document.getElementById('fixDay').value)||1; const t=document.getElementById('fixType').value; const c=document.getElementById('fixCat').value; if(n&&v>0){ dbGlobal.fixed.push({n,v,d,t,c}); localStorage.setItem('appV25_g',JSON.stringify(dbGlobal)); document.getElementById('fixName').value=''; document.getElementById('fixVal').value=''; renderFixedList(); }else{ alert('Preencha nome e valor.'); } }
+        function delFixed(i) { dbGlobal.fixed.splice(i,1); localStorage.setItem('appV25_g',JSON.stringify(dbGlobal)); renderFixedList(); }
+        function renderFixedList() { const ul=document.getElementById('listFixed'); ul.innerHTML=""; if(dbGlobal.fixed.length===0){ ul.innerHTML="<li style='text-align:center; color:#999; padding:10px'>Nenhuma despesa fixa cadastrada.</li>"; return; } dbGlobal.fixed.forEach((it,i)=>{ const typeIcon=it.t==='debit'?'🔴':'🟠'; ul.innerHTML+=`<li class="item" style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-weight:bold; font-size:0.9rem">${typeIcon} ${it.n}</div><div style="font-size:0.75rem; color:#64748b">Dia ${it.d} • ${it.c}</div></div><div style="text-align:right"><strong>${fmt(it.v)}</strong><span class="del" onclick="delFixed(${i})">✕</span></div></li>`; }); }
+        function checkFixedExpenses() { const k=getKey(hoje.getFullYear(),hoje.getMonth()); let dbAtual=localStorage.getItem(k)?JSON.parse(localStorage.getItem(k)):null; if(!dbAtual) dbAtual={in:[],debit:[],credit:[],invoicePaid:0,fixedLaunched:false}; if(dbGlobal.fixed.length>0&&!dbAtual.fixedLaunched){ if(confirm(`📅 Novo Mês Detectado!\n\nExistem ${dbGlobal.fixed.length} despesas fixas cadastradas.\nDeseja lançar elas no extrato de agora?`)){ dbGlobal.fixed.forEach(it=>{ if(it.t==='debit'){ dbAtual.debit.push({n:it.n+' (Fixo)',v:it.v,d:it.d,c:it.c}); }else{ dbAtual.credit.push({n:it.n+' (Fixo)',v:it.v,d:it.d,c:it.c}); } }); dbAtual.fixedLaunched=true; localStorage.setItem(k,JSON.stringify(dbAtual)); if(dataNav.getMonth()===hoje.getMonth()&&dataNav.getFullYear()===hoje.getFullYear()){ render(); } alert("Despesas lançadas!"); } } }
+
+        // --- CORE FUNCTIONS ---
         function getKey(a,m) { return `appV25_m_${a}_${m}`; }
-        function getDB(a, m) {
-            const k = getKey(a, m);
-            if(!dbMensal[k]) {
-                const saved = localStorage.getItem(k);
-                dbMensal[k] = saved ? JSON.parse(saved) : { in:[], debit:[], credit:[], invoicePaid:0 };
-            }
-            return dbMensal[k];
-        }
-
-        function setChartType(type) {
-            chartType = type;
-            document.querySelectorAll('.chart-toggle').forEach(b => b.classList.remove('active'));
-            if(event) event.target.classList.add('active');
-            const pieFilterEl = document.getElementById('pieFilterOpts');
-            if(type === 'pie') pieFilterEl.style.display = 'flex'; else pieFilterEl.style.display = 'none';
-            renderChart(dataNav.getFullYear(), dataNav.getMonth());
-        }
-        function setPieFilter(filter) {
-            pieFilter = filter;
-            document.querySelectorAll('.pie-filter-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            renderChart(dataNav.getFullYear(), dataNav.getMonth());
-        }
-        function renderChart(curAno, curMes) {
-            const ctx = document.getElementById('balanceChart');
-            if(myChart) myChart.destroy();
-
-            if (chartType === 'bar') {
-                let labels = []; let dataSaldo = []; let dataFatura = [];
-                for(let i=0; i<6; i++) {
-                    let d = new Date(curAno, curMes + i, 1);
-                    let lAno = d.getFullYear(); let lMes = d.getMonth();
-                    let rep = calcularRepasses(lAno, lMes);
-                    let k = getKey(lAno, lMes);
-                    let db = localStorage.getItem(k) ? JSON.parse(localStorage.getItem(k)) : { in:[], debit:[], credit:[] };
-                    let mIn = db.in.reduce((a,b)=>a+b.v,0) + rep.sobra;
-                    let mDeb = db.debit.reduce((a,b)=>a+b.v,0);
-                    let mFat = db.credit.reduce((a,b)=>a+b.v,0) + rep.divida;
-                    labels.push(d.toLocaleString('pt-BR', {month:'short'}));
-                    dataSaldo.push(mIn - mDeb - mFat);
-                    dataFatura.push(mFat);
-                }
-                myChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [ { label: 'Saldo Disp.', data: dataSaldo, backgroundColor: dataSaldo.map(v => v < 0 ? '#ef4444' : '#10b981'), order: 2, borderRadius: 4 }, { label: 'Fatura', data: dataFatura, type: 'line', borderColor: '#334155', backgroundColor: '#334155', borderWidth: 2, tension: 0.3, pointRadius: 4, order: 1 } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } } });
-            } else {
-                const db = getDB(curAno, curMes);
-                const categories = {};
-                const rep = calcularRepasses(curAno, curMes);
-
-                if(pieFilter === 'all' || pieFilter === 'debit') {
-                    db.debit.forEach(i => { const c = i.c || '👤 Pessoal'; categories[c] = (categories[c] || 0) + i.v; });
-                }
-                if(pieFilter === 'all' || pieFilter === 'credit') {
-                    db.credit.forEach(i => { const c = i.c || '👤 Pessoal'; categories[c] = (categories[c] || 0) + i.v; });
-                    if(rep.divida > 0) { const c = '⚠️ Pendência Fatura'; categories[c] = (categories[c] || 0) + rep.divida; }
-                }
-
-                const labels = Object.keys(categories);
-                const data = Object.values(categories);
-                const colors = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#818cf8', '#e879f9'];
-
-                myChart = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 }, padding: 10 } } } } });
-            }
-        }
-        function calcularRepasses(anoAlvo, mesAlvo) {
-            let dividaTransportada = 0; let sobraTransportada = 0;
-            const keys = Object.keys(localStorage).filter(k => k.startsWith('appV25_m_')).sort();
-            keys.forEach(key => {
-                const [,, kAno, kMes] = key.split('_').map(Number);
-                if (kAno < anoAlvo || (kAno === anoAlvo && kMes < mesAlvo)) {
-                    const mData = JSON.parse(localStorage.getItem(key));
-                    const mCred = mData.credit.reduce((acc, x) => acc + x.v, 0);
-                    const mPaid = mData.invoicePaid || 0;
-                    if (mPaid > 0) {
-                        const faturaReal = mCred + dividaTransportada;
-                        const balanco = mPaid - faturaReal;
-                        if (balanco >= 0) { sobraTransportada = balanco; dividaTransportada = 0; } 
-                        else { dividaTransportada = Math.abs(balanco); sobraTransportada = 0; }
-                    } else { dividaTransportada = 0; sobraTransportada = 0; }
-                }
-            });
-            return { sobra: sobraTransportada, divida: dividaTransportada };
-        }
-        
-        function render() {
-            const a = dataNav.getFullYear(); const m = dataNav.getMonth();
-            const d = getDB(a, m);
-            const yStr = a; const mStr = String(m + 1).padStart(2, '0');
-            document.getElementById('navMonth').value = `${yStr}-${mStr}`;
-            const lastDay = new Date(a, m + 1, 0).getDate();
-            const todayStr = new Date().toISOString().split('T')[0];
-            const firstDateStr = `${yStr}-${mStr}-01`;
-            const lastDateStr = `${yStr}-${mStr}-${lastDay}`;
-            ['inDate', 'debDate', 'credDate'].forEach(id => { 
-                const el = document.getElementById(id); el.min = firstDateStr; el.max = lastDateStr;
-                if(a === hoje.getFullYear() && m === hoje.getMonth()) el.value = todayStr; else el.value = firstDateStr;
-            });
-            const repasse = calcularRepasses(a, m);
-            const sIn = d.in.reduce((acc, x) => acc + x.v, 0);
-            const sDeb = d.debit.reduce((acc, x) => acc + x.v, 0);
-            const sCred = d.credit.reduce((acc, x) => acc + x.v, 0);
-            const ulIn = document.getElementById('listIn'); ulIn.innerHTML = "";
-            if (repasse.sobra > 0) ulIn.innerHTML += `<li class="item item-special"><div>💰 Sobra Fatura Anterior</div><strong>${fmt(repasse.sobra)}</strong></li>`;
-            d.in.forEach((it, i) => addLi(ulIn, it, i, 'in'));
-            const ulCred = document.getElementById('listCredit'); ulCred.innerHTML = "";
-            if (repasse.divida > 0) ulCred.innerHTML += `<li class="item item-special-debt"><div>⚠️ Pendência Fatura Anterior</div><strong>${fmt(repasse.divida)}</strong></li>`;
-            d.credit.forEach((it, i) => addLi(ulCred, it, i, 'credit'));
-            list('listDebit', d.debit, 'debit'); listW(); 
-            const totalEntradas = sIn + repasse.sobra;
-            const totalFatura = sCred + repasse.divida;
-            const disponivel = totalEntradas - sDeb - totalFatura;
-            document.getElementById('totIn').innerText = fmt(totalEntradas);
-            document.getElementById('totDebit').innerText = fmt(sDeb);
-            document.getElementById('totCredit').innerText = fmt(totalFatura);
-            document.getElementById('valSaldoLiq').innerText = fmt(disponivel);
-            document.getElementById('invPaid').value = d.invoicePaid || "";
-            const ultDia = new Date(a, m+1, 0).getDate();
-            const diasRest = Math.max(1, (ultDia - diaSel) + 1);
-            const diario = disponivel / diasRest;
-            document.getElementById('valDiario').innerText = fmt(diario);
-            document.getElementById('valSemanal').innerText = fmt(diario * 7); 
-            document.getElementById('infoDias').innerText = `${diasRest} dias restantes`;
-            const painel = document.getElementById('painelRes');
-            painel.className = "result-card"; 
-            if (disponivel <= 0) { painel.classList.add("bg-danger"); document.getElementById('labelStatus').innerText = "⚠️ Negativo"; }
-            else if (diario < 30) { painel.classList.add("bg-warning"); document.getElementById('labelStatus').innerText = "⚠️ Atenção (<30)"; }
-            else { painel.classList.add("bg-safe"); document.getElementById('labelStatus').innerText = "✅ Confortável"; }
-            updateCalendar(a, m, ultDia); updateGlobalLimit(); renderChart(a, m);
-        }
-        function add(tipo) {
-            const d = getDB(dataNav.getFullYear(), dataNav.getMonth());
-            let nameId='', valId='', dateId='', catId='', targetArr=null;
-            if(tipo === 'in') { nameId='inNome'; valId='inVal'; dateId='inDate'; catId='catIn'; targetArr=d.in; }
-            else if(tipo === 'debit') { nameId='debNome'; valId='debVal'; dateId='debDate'; catId='catDeb'; targetArr=d.debit; }
-            else if(tipo === 'credit') { nameId='credNome'; valId='credVal'; dateId='credDate'; catId='catCred'; targetArr=d.credit; }
-            else if(tipo === 'wishes') { nameId='wishNome'; valId='wishVal'; targetArr=dbGlobal.wishes; }
-            const elName = document.getElementById(nameId); const elVal = document.getElementById(valId);
-            if(elName && elVal) {
-                const name = elName.value; const val = parseFloat(elVal.value);
-                if(name && !isNaN(val) && val > 0) {
-                    if(tipo === 'wishes') { targetArr.push({ n: name, v: val }); localStorage.setItem('appV25_g', JSON.stringify(dbGlobal)); } 
-                    else { const elDate = document.getElementById(dateId); const elCat = document.getElementById(catId); const day = elDate ? parseInt(elDate.value.split('-')[2]) : 1; const cat = elCat ? elCat.value : '👤 Pessoal'; targetArr.push({ n: name, v: val, d: day, c: cat }); save(); }
-                    elName.value = ''; elVal.value = ''; render();
-                } else { alert("Preencha corretamente."); }
-            }
-        }
+        function getDB(a, m) { const k = getKey(a, m); if(!dbMensal[k]) { const saved = localStorage.getItem(k); dbMensal[k] = saved ? JSON.parse(saved) : { in:[], debit:[], credit:[], invoicePaid:0 }; } return dbMensal[k]; }
+        function setChartType(type) { chartType = type; document.querySelectorAll('.chart-toggle').forEach(b => b.classList.remove('active')); if(event) event.target.classList.add('active'); const pieFilterEl = document.getElementById('pieFilterOpts'); if(type === 'pie') pieFilterEl.style.display = 'flex'; else pieFilterEl.style.display = 'none'; renderChart(dataNav.getFullYear(), dataNav.getMonth()); }
+        function setPieFilter(filter) { pieFilter = filter; document.querySelectorAll('.pie-filter-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); renderChart(dataNav.getFullYear(), dataNav.getMonth()); }
+        function renderChart(curAno, curMes) { const ctx = document.getElementById('balanceChart'); if(myChart) myChart.destroy(); if (chartType === 'bar') { let labels = []; let dataSaldo = []; let dataFatura = []; for(let i=0; i<6; i++) { let d = new Date(curAno, curMes + i, 1); let lAno = d.getFullYear(); let lMes = d.getMonth(); let rep = calcularRepasses(lAno, lMes); let k = getKey(lAno, lMes); let db = localStorage.getItem(k) ? JSON.parse(localStorage.getItem(k)) : { in:[], debit:[], credit:[] }; let mIn = db.in.reduce((a,b)=>a+b.v,0) + rep.sobra; let mDeb = db.debit.reduce((a,b)=>a+b.v,0); let mFat = db.credit.reduce((a,b)=>a+b.v,0) + rep.divida; labels.push(d.toLocaleString('pt-BR', {month:'short'})); dataSaldo.push(mIn - mDeb - mFat); dataFatura.push(mFat); } myChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [ { label: 'Saldo Disp.', data: dataSaldo, backgroundColor: dataSaldo.map(v => v < 0 ? '#ef4444' : '#10b981'), order: 2, borderRadius: 4 }, { label: 'Fatura', data: dataFatura, type: 'line', borderColor: '#334155', backgroundColor: '#334155', borderWidth: 2, tension: 0.3, pointRadius: 4, order: 1 } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } } }); } else { const db = getDB(curAno, curMes); const categories = {}; const rep = calcularRepasses(curAno, curMes); if(pieFilter === 'all' || pieFilter === 'debit') { db.debit.forEach(i => { const c = i.c || '👤 Pessoal'; categories[c] = (categories[c] || 0) + i.v; }); } if(pieFilter === 'all' || pieFilter === 'credit') { db.credit.forEach(i => { const c = i.c || '👤 Pessoal'; categories[c] = (categories[c] || 0) + i.v; }); if(rep.divida > 0) { const c = '⚠️ Pendência Fatura'; categories[c] = (categories[c] || 0) + rep.divida; } } const labels = Object.keys(categories); const data = Object.values(categories); const colors = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#818cf8', '#e879f9']; myChart = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 }, padding: 10 } } } } }); } }
+        function calcularRepasses(anoAlvo, mesAlvo) { let dividaTransportada = 0; let sobraTransportada = 0; const keys = Object.keys(localStorage).filter(k => k.startsWith('appV25_m_')).sort(); keys.forEach(key => { const [,, kAno, kMes] = key.split('_').map(Number); if (kAno < anoAlvo || (kAno === anoAlvo && kMes < mesAlvo)) { const mData = JSON.parse(localStorage.getItem(key)); const mCred = mData.credit.reduce((acc, x) => acc + x.v, 0); const mPaid = mData.invoicePaid || 0; if (mPaid > 0) { const faturaReal = mCred + dividaTransportada; const balanco = mPaid - faturaReal; if (balanco >= 0) { sobraTransportada = balanco; dividaTransportada = 0; } else { dividaTransportada = Math.abs(balanco); sobraTransportada = 0; } } else { dividaTransportada = 0; sobraTransportada = 0; } } }); return { sobra: sobraTransportada, divida: dividaTransportada }; }
+        function render() { const a = dataNav.getFullYear(); const m = dataNav.getMonth(); const d = getDB(a, m); const yStr = a; const mStr = String(m + 1).padStart(2, '0'); document.getElementById('navMonth').value = `${yStr}-${mStr}`; const lastDay = new Date(a, m + 1, 0).getDate(); const todayStr = new Date().toISOString().split('T')[0]; const firstDateStr = `${yStr}-${mStr}-01`; const lastDateStr = `${yStr}-${mStr}-${lastDay}`; ['inDate', 'debDate', 'credDate'].forEach(id => { const el = document.getElementById(id); el.min = firstDateStr; el.max = lastDateStr; if(a === hoje.getFullYear() && m === hoje.getMonth()) el.value = todayStr; else el.value = firstDateStr; }); const repasse = calcularRepasses(a, m); const sIn = d.in.reduce((acc, x) => acc + x.v, 0); const sDeb = d.debit.reduce((acc, x) => acc + x.v, 0); const sCred = d.credit.reduce((acc, x) => acc + x.v, 0); const ulIn = document.getElementById('listIn'); ulIn.innerHTML = ""; if (repasse.sobra > 0) ulIn.innerHTML += `<li class="item item-special"><div>💰 Sobra Fatura Anterior</div><strong>${fmt(repasse.sobra)}</strong></li>`; d.in.forEach((it, i) => addLi(ulIn, it, i, 'in')); const ulCred = document.getElementById('listCredit'); ulCred.innerHTML = ""; if (repasse.divida > 0) ulCred.innerHTML += `<li class="item item-special-debt"><div>⚠️ Pendência Fatura Anterior</div><strong>${fmt(repasse.divida)}</strong></li>`; d.credit.forEach((it, i) => addLi(ulCred, it, i, 'credit')); list('listDebit', d.debit, 'debit'); listW(); const totalEntradas = sIn + repasse.sobra; const totalFatura = sCred + repasse.divida; const disponivel = totalEntradas - sDeb - totalFatura; document.getElementById('totIn').innerText = fmt(totalEntradas); document.getElementById('totDebit').innerText = fmt(sDeb); document.getElementById('totCredit').innerText = fmt(totalFatura); document.getElementById('valSaldoLiq').innerText = fmt(disponivel); document.getElementById('invPaid').value = d.invoicePaid || ""; const ultDia = new Date(a, m+1, 0).getDate(); const diasRest = Math.max(1, (ultDia - diaSel) + 1); const diario = disponivel / diasRest; document.getElementById('valDiario').innerText = fmt(diario); document.getElementById('valSemanal').innerText = fmt(diario * 7); document.getElementById('infoDias').innerText = `${diasRest} dias restantes`; const painel = document.getElementById('painelRes'); painel.className = "result-card"; if (disponivel <= 0) { painel.classList.add("bg-danger"); document.getElementById('labelStatus').innerText = "⚠️ Negativo"; } else if (diario < 30) { painel.classList.add("bg-warning"); document.getElementById('labelStatus').innerText = "⚠️ Atenção (<30)"; } else { painel.classList.add("bg-safe"); document.getElementById('labelStatus').innerText = "✅ Confortável"; } updateCalendar(a, m, ultDia); updateGlobalLimit(); renderChart(a, m); }
+        function add(tipo) { const d = getDB(dataNav.getFullYear(), dataNav.getMonth()); let nameId='', valId='', dateId='', catId='', targetArr=null; if(tipo === 'in') { nameId='inNome'; valId='inVal'; dateId='inDate'; catId='catIn'; targetArr=d.in; } else if(tipo === 'debit') { nameId='debNome'; valId='debVal'; dateId='debDate'; catId='catDeb'; targetArr=d.debit; } else if(tipo === 'credit') { nameId='credNome'; valId='credVal'; dateId='credDate'; catId='catCred'; targetArr=d.credit; } else if(tipo === 'wishes') { nameId='wishNome'; valId='wishVal'; targetArr=dbGlobal.wishes; } const elName = document.getElementById(nameId); const elVal = document.getElementById(valId); if(elName && elVal) { const name = elName.value; const val = parseFloat(elVal.value); if(name && !isNaN(val) && val > 0) { if(tipo === 'wishes') { targetArr.push({ n: name, v: val }); localStorage.setItem('appV25_g', JSON.stringify(dbGlobal)); } else { const elDate = document.getElementById(dateId); const elCat = document.getElementById(catId); const day = elDate ? parseInt(elDate.value.split('-')[2]) : 1; const cat = elCat ? elCat.value : '👤 Pessoal'; targetArr.push({ n: name, v: val, d: day, c: cat }); save(); } elName.value = ''; elVal.value = ''; render(); } else { alert("Preencha corretamente."); } } }
         function del(tipo, i) { if(tipo==='wishes'){ dbGlobal.wishes.splice(i,1); localStorage.setItem('appV25_g', JSON.stringify(dbGlobal)); } else { getDB(dataNav.getFullYear(), dataNav.getMonth())[tipo].splice(i,1); save(); } render(); }
         function openBuyModal(index) { selectedWishIndex = index; const item = dbGlobal.wishes[index]; document.getElementById('modalItemName').innerText = `${item.n} - ${fmt(item.v)}`; document.getElementById('buyModal').style.display = 'flex'; toggleInstallments(); }
         function closeBuyModal() { document.getElementById('buyModal').style.display = 'none'; selectedWishIndex = null; }
         function toggleInstallments() { document.getElementById('creditOptions').style.display = document.getElementById('modalType').value === 'credit' ? 'block' : 'none'; }
-        function confirmBuy() {
-            if(selectedWishIndex === null) return;
-            const item = dbGlobal.wishes[selectedWishIndex]; const type = document.getElementById('modalType').value; const cat = document.getElementById('modalCat').value;
-            if (type === 'debit') { const db = getDB(dataNav.getFullYear(), dataNav.getMonth()); const isCurrentMonth = (dataNav.getMonth() === hoje.getMonth() && dataNav.getFullYear() === hoje.getFullYear()); const dayToUse = isCurrentMonth ? hoje.getDate() : 1; db.debit.push({n: item.n, v: item.v, d: dayToUse, c: cat}); save(); } 
-            else { const parcelas = parseInt(document.getElementById('modalInstallments').value) || 1; const startStr = document.getElementById('modalStartMonth').value; if(!startStr) return alert("Escolha o mês"); let [sY, sM] = startStr.split('-').map(Number); sM -= 1; const vParc = item.v / parcelas; for (let i = 0; i < parcelas; i++) { let curM = sM + i; let curY = sY; while (curM > 11) { curM -= 12; curY++; } let dbFuturo = getKey(curY, curM); let dadosFuturo = localStorage.getItem(dbFuturo) ? JSON.parse(localStorage.getItem(dbFuturo)) : { in:[], debit:[], credit:[], invoicePaid:0 }; dadosFuturo.credit.push({ n: `${item.n} (${i+1}/${parcelas})`, v: vParc, d: 1, c: cat }); localStorage.setItem(dbFuturo, JSON.stringify(dadosFuturo)); } }
-            dbGlobal.wishes.splice(selectedWishIndex, 1); localStorage.setItem('appV25_g', JSON.stringify(dbGlobal)); closeBuyModal(); switchTab('budget'); render();
-        }
+        function confirmBuy() { if(selectedWishIndex === null) return; const item = dbGlobal.wishes[selectedWishIndex]; const type = document.getElementById('modalType').value; const cat = document.getElementById('modalCat').value; if (type === 'debit') { const db = getDB(dataNav.getFullYear(), dataNav.getMonth()); const isCurrentMonth = (dataNav.getMonth() === hoje.getMonth() && dataNav.getFullYear() === hoje.getFullYear()); const dayToUse = isCurrentMonth ? hoje.getDate() : 1; db.debit.push({n: item.n, v: item.v, d: dayToUse, c: cat}); save(); } else { const parcelas = parseInt(document.getElementById('modalInstallments').value) || 1; const startStr = document.getElementById('modalStartMonth').value; if(!startStr) return alert("Escolha o mês"); let [sY, sM] = startStr.split('-').map(Number); sM -= 1; const vParc = item.v / parcelas; for (let i = 0; i < parcelas; i++) { let curM = sM + i; let curY = sY; while (curM > 11) { curM -= 12; curY++; } let dbFuturo = getKey(curY, curM); let dadosFuturo = localStorage.getItem(dbFuturo) ? JSON.parse(localStorage.getItem(dbFuturo)) : { in:[], debit:[], credit:[], invoicePaid:0 }; dadosFuturo.credit.push({ n: `${item.n} (${i+1}/${parcelas})`, v: vParc, d: 1, c: cat }); localStorage.setItem(dbFuturo, JSON.stringify(dadosFuturo)); } } dbGlobal.wishes.splice(selectedWishIndex, 1); localStorage.setItem('appV25_g', JSON.stringify(dbGlobal)); closeBuyModal(); switchTab('budget'); render(); }
         function switchDash(mode) { document.querySelectorAll('.dash-tab-btn').forEach(b => b.classList.remove('active')); document.querySelectorAll('.dash-view').forEach(v => v.classList.remove('active')); if(mode === 'nums') { document.getElementById('dash-nums').classList.add('active'); document.querySelectorAll('.dash-tab-btn')[0].classList.add('active'); } else { document.getElementById('dash-graph').classList.add('active'); document.querySelectorAll('.dash-tab-btn')[1].classList.add('active'); } }
         function updateGlobalLimit() { let total = 0; let pago = 0; Object.keys(localStorage).filter(k=>k.startsWith('appV25_m_')).forEach(k=>{ let d = JSON.parse(localStorage.getItem(k)); total += d.credit.reduce((a,b)=>a+b.v,0); pago += (d.invoicePaid||0); }); let used = Math.max(0, total - pago); let pct = Math.min(100, (used/settings.limit)*100); document.getElementById('txtCreditLimit').innerText = `Usado: ${fmt(used)}`; document.getElementById('barCredit').style.width = pct + "%"; }
         function updateCalendar(a, m, ultDia) { const grid = document.getElementById('gridCal'); grid.innerHTML = ""; for(let i=1; i<=ultDia; i++){ const div = document.createElement('div'); div.className = `day ${i===diaSel?'active':''} ${(a===hoje.getFullYear()&&m===hoje.getMonth()&&i===hoje.getDate())?'today':''}`; div.innerText = i; div.onclick = () => { diaSel=i; render(); }; grid.appendChild(div); } }
@@ -544,52 +339,57 @@
         function switchTab(t) { document.getElementById('viewBudget').classList.toggle('active', t==='budget'); document.getElementById('viewWishes').classList.toggle('active', t==='wishes'); document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0 && t==='budget') || (i===1 && t==='wishes'))); }
         function openSetupModal() { document.getElementById('setupModal').style.display='flex'; document.getElementById('setupLimit').value=settings.limit; document.getElementById('setupGoal').value=settings.dailyGoal; }
         function saveSetup() { settings.limit = parseFloat(document.getElementById('setupLimit').value) || 4000; settings.dailyGoal = parseFloat(document.getElementById('setupGoal').value) || 30; localStorage.setItem('appV25_settings', JSON.stringify(settings)); document.getElementById('setupModal').style.display='none'; render(); }
-        function getSimulatedBalance(year, month) {
-            const k = getKey(year, month);
-            if(localStorage.getItem(k)) {
-                const db = JSON.parse(localStorage.getItem(k));
-                const rep = calcularRepasses(year, month);
-                const sIn = db.in.reduce((a,b)=>a+b.v,0) + rep.sobra;
-                const sDeb = db.debit.reduce((a,b)=>a+b.v,0);
-                const sCred = db.credit.reduce((a,b)=>a+b.v,0) + rep.divida;
-                return sIn - sDeb - sCred;
-            } else {
-                const curDB = getDB(dataNav.getFullYear(), dataNav.getMonth());
-                const sIn = curDB.in.reduce((a,b)=>a+b.v,0); 
-                const sDeb = curDB.debit.reduce((a,b)=>a+b.v,0); 
-                return sIn - sDeb; 
-            }
+        function getSimulatedBalance(year, month) { const k = getKey(year, month); if(localStorage.getItem(k)) { const db = JSON.parse(localStorage.getItem(k)); const rep = calcularRepasses(year, month); const sIn = db.in.reduce((a,b)=>a+b.v,0) + rep.sobra; const sDeb = db.debit.reduce((a,b)=>a+b.v,0); const sCred = db.credit.reduce((a,b)=>a+b.v,0) + rep.divida; return sIn - sDeb - sCred; } else { const curDB = getDB(dataNav.getFullYear(), dataNav.getMonth()); const sIn = curDB.in.reduce((a,b)=>a+b.v,0); const sDeb = curDB.debit.reduce((a,b)=>a+b.v,0); return sIn - sDeb; } }
+        function generateAdvice(totalVal) { let html = "<div class='sug-list'>"; const meta = settings.dailyGoal; let foundOption = false; for(let p = 1; p <= 12; p++) { let parcVal = totalVal / p; let bestStartMonth = null; for(let offset = 0; offset <= 5; offset++) { let targetDate = new Date(dataNav.getFullYear(), dataNav.getMonth() + offset, 1); let saldoPrevisto = getSimulatedBalance(targetDate.getFullYear(), targetDate.getMonth()); if ( (saldoPrevisto - parcVal) >= (meta * 20) ) { bestStartMonth = targetDate.toLocaleString('pt-BR', { month: 'long' }); break; } } if(bestStartMonth) { html += `<div class="sug-item"><span>${p}x de ${fmt(parcVal)}</span><span>Início: <strong style="text-transform:capitalize">${bestStartMonth}</strong></span></div>`; foundOption = true; } } if(!foundOption) html += `<div class="sug-item" style="color:var(--red)">Nenhuma opção segura encontrada.</div>`; return html + "</div>"; }
+        
+        // --- FUNÇÃO PDF CORRIGIDA (V27.5) ---
+        function exportPDF() { 
+            const element = document.getElementById('printableArea'); 
+            const clone = element.cloneNode(true); 
+            const container = document.createElement('div'); 
+            container.style.position = 'absolute'; 
+            container.style.left = '-9999px'; 
+            container.style.top = '0'; 
+            container.style.width = '794px'; 
+            container.style.zIndex = '-1'; 
+            clone.style.width = '100%'; 
+            clone.style.height = 'auto'; 
+            clone.style.minHeight = '100%'; 
+            clone.style.maxHeight = 'none'; 
+            clone.style.overflow = 'visible'; 
+            const filters = clone.querySelector('.rep-filters'); 
+            if(filters) filters.remove(); 
+            container.appendChild(clone); 
+            document.body.appendChild(container); 
+            
+            // Pulo do gato: Altura total real
+            const totalHeight = clone.scrollHeight + 50; 
+            
+            const monthName = dataNav.toLocaleString('pt-BR', {month:'long', year:'numeric'}); 
+            const opt = { 
+                margin: [10, 10, 10, 10], 
+                filename: `Extrato_${monthName}.pdf`, 
+                image: { type: 'jpeg', quality: 0.98 }, 
+                html2canvas: { 
+                    scale: 2, 
+                    scrollY: 0, 
+                    useCORS: true, 
+                    windowWidth: 800, 
+                    windowHeight: totalHeight, 
+                    height: totalHeight 
+                }, 
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, 
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } 
+            }; 
+            
+            html2pdf().set(opt).from(clone).save().then(() => { 
+                document.body.removeChild(container); 
+            }).catch(err => { 
+                console.error("Erro ao gerar PDF:", err); 
+                document.body.removeChild(container); 
+            }); 
         }
-        function generateAdvice(totalVal) {
-            let html = "<div class='sug-list'>";
-            const meta = settings.dailyGoal;
-            let foundOption = false;
-            for(let p = 1; p <= 12; p++) {
-                let parcVal = totalVal / p;
-                let bestStartMonth = null;
-                for(let offset = 0; offset <= 5; offset++) {
-                    let targetDate = new Date(dataNav.getFullYear(), dataNav.getMonth() + offset, 1);
-                    let saldoPrevisto = getSimulatedBalance(targetDate.getFullYear(), targetDate.getMonth());
-                    if ( (saldoPrevisto - parcVal) >= (meta * 20) ) { bestStartMonth = targetDate.toLocaleString('pt-BR', { month: 'long' }); break; }
-                }
-                if(bestStartMonth) {
-                    html += `<div class="sug-item"><span>${p}x de ${fmt(parcVal)}</span><span>Início: <strong style="text-transform:capitalize">${bestStartMonth}</strong></span></div>`;
-                    foundOption = true;
-                }
-            }
-            if(!foundOption) html += `<div class="sug-item" style="color:var(--red)">Nenhuma opção segura encontrada.</div>`;
-            return html + "</div>";
-        }
-        function exportPDF() {
-            const element = document.getElementById('printableArea'); const clone = element.cloneNode(true);
-            const container = document.createElement('div'); container.style.position = 'absolute'; container.style.left = '-9999px'; container.style.top = '0'; container.style.width = '794px'; container.style.zIndex = '-1';
-            clone.style.width = '100%'; clone.style.height = 'auto'; clone.style.minHeight = '100%'; clone.style.maxHeight = 'none'; clone.style.overflow = 'visible';
-            const filters = clone.querySelector('.rep-filters'); if(filters) filters.remove();
-            container.appendChild(clone); document.body.appendChild(container);
-            const totalHeight = clone.scrollHeight + 50; const monthName = dataNav.toLocaleString('pt-BR', {month:'long', year:'numeric'});
-            const opt = { margin: [10, 10, 10, 10], filename: `Extrato_${monthName}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollY: 0, useCORS: true, windowWidth: 800, windowHeight: totalHeight, height: totalHeight }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } };
-            html2pdf().set(opt).from(clone).save().then(() => { document.body.removeChild(container); }).catch(err => { console.error("Erro ao gerar PDF:", err); document.body.removeChild(container); });
-        }
+        
         function openReport() { currentReportFilter = 'all'; updateReportUI(); document.getElementById('reportModal').style.display = 'flex'; }
         function updateReport(filter) { currentReportFilter = filter; document.querySelectorAll('.rep-btn').forEach(b => b.classList.remove('active')); const btns = document.querySelectorAll('.rep-btn'); if(filter === 'all') btns[0].classList.add('active'); else if(filter === 'in') btns[1].classList.add('active'); else btns[2].classList.add('active'); updateReportUI(); }
         function updateReportUI() { const d = getDB(dataNav.getFullYear(), dataNav.getMonth()); const monthName = dataNav.toLocaleString('pt-BR', {month:'long', year:'numeric'}); document.getElementById('repSubtitle').innerText = monthName.charAt(0).toUpperCase() + monthName.slice(1); let timeline = []; const rep = calcularRepasses(dataNav.getFullYear(), dataNav.getMonth()); if(rep.sobra > 0) timeline.push({ n: '💰 Sobra Fatura Anterior', v: rep.sobra, type: 'in', d: 1, c: 'Automático' }); if(rep.divida > 0) timeline.push({ n: '⚠️ Pendência Fatura Anterior', v: rep.divida, type: 'out', d: 1, c: 'Automático' }); d.in.forEach(i => timeline.push({...i, type: 'in'})); d.debit.forEach(i => timeline.push({...i, type: 'out'})); d.credit.forEach(i => timeline.push({...i, type: 'cred'})); if (currentReportFilter === 'in') timeline = timeline.filter(i => i.type === 'in'); if (currentReportFilter === 'out') timeline = timeline.filter(i => i.type === 'out' || i.type === 'cred'); timeline.sort((a, b) => (a.d || 1) - (b.d || 1)); let sumIn = 0, sumOut = 0; timeline.forEach(i => { if(i.type === 'in') sumIn += i.v; else sumOut += i.v; }); let html = `<ul class="report-list">`; if(timeline.length === 0) html += `<li style="text-align:center; color:#999; padding:20px">Nenhum registro.</li>`; timeline.forEach(item => { let cls = item.type === 'in' ? 'rep-in' : (item.type === 'out' ? 'rep-out' : 'rep-cred'); let colorClass = item.type === 'in' ? 'rep-in-txt' : 'rep-out-txt'; let signal = item.type === 'in' ? '+' : '-'; html += `<li class="report-row ${cls}" style="background-color: ${item.type==='in'?'#dcfce7':(item.type==='out'?'#fee2e2':'#ffedd5')};"><div style="display:flex; align-items:center"><span class="rep-day">${String(item.d||1).padStart(2, '0')}</span><div class="rep-desc"><span style="font-weight:600">${item.n}</span><span class="rep-cat">${item.c || 'Geral'} ${item.type==='cred' ? '(Cartão)' : ''}</span></div></div><span class="rep-val ${colorClass}">${signal} ${fmt(item.v)}</span></li>`; }); html += `</ul>`; const saldoFinal = sumIn - sumOut; const colorFinal = saldoFinal >= 0 ? 'var(--green)' : 'var(--red)'; html += `<div class="rep-footer"><div class="rep-summary-row"><span>Total Entradas:</span> <strong style="color:var(--green)">${fmt(sumIn)}</strong></div><div class="rep-summary-row"><span>Total Saídas:</span> <strong style="color:var(--red)">${fmt(sumOut)}</strong></div><div class="rep-summary-row rep-total-final" style="display:flex; justify-content:space-between;"><span>Saldo do Mês:</span><span style="color:${colorFinal}">${fmt(saldoFinal)}</span></div></div>`; document.getElementById('reportContent').innerHTML = html; }
