@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestor V29.4 - Evolução</title>
+    <title>Gestor V29.5 - Sandbox</title>
     
     <meta name="theme-color" content="#2563eb">
     <link rel="manifest" href="manifest.json">
@@ -28,6 +28,23 @@
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
         }
 
+        /* SANDBOX MODE STYLES */
+        body.sandbox-active .container {
+            border: 2px dashed #eab308;
+            background-color: #fefce8;
+        }
+        body.dark-mode.sandbox-active .container {
+            background-color: #422006;
+            border-color: #facc15;
+        }
+        .sandbox-badge {
+            display: none;
+            background: #eab308; color: black; font-weight: bold;
+            padding: 5px 10px; border-radius: 20px; font-size: 0.8rem;
+            margin-right: auto; /* Alinha a esquerda */
+        }
+        body.sandbox-active .sandbox-badge { display: inline-block; }
+
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body { 
@@ -42,9 +59,9 @@
         .no-select, h3, .box-head, .nav-btn, .config-btn, .tab-btn { user-select: none; -webkit-user-select: none; }
         body.privacy-on .blur-target { filter: blur(6px); user-select: none; cursor: default; transition: filter 0.3s ease; }
 
-        .container { background: var(--card); width: 100%; max-width: 600px; padding: 1.5rem; border-radius: 16px; box-shadow: var(--shadow); position: relative; }
+        .container { background: var(--card); width: 100%; max-width: 600px; padding: 1.5rem; border-radius: 16px; box-shadow: var(--shadow); position: relative; transition: 0.3s; }
         
-        .top-btns { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px; }
+        .top-btns { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px; align-items: center; }
         .config-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.7; transition: 0.2s; color: var(--text); }
         
         .result-card { color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 25px; box-shadow: var(--shadow); transition: 0.3s; }
@@ -118,6 +135,16 @@
         .btn-cancel { background: var(--border); color: var(--text); border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; }
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
 
+        /* Utilitários */
+        .limit-container { margin-bottom: 20px; background: #fff7ed; padding: 15px; border-radius: 12px; border: 1px solid #ffedd5; }
+        body.dark-mode .limit-container { background: #431407; border-color: #7c2d12; }
+        .limit-bg { background: rgba(0,0,0,0.1); height: 8px; border-radius: 5px; overflow: hidden; margin-top:5px;}
+        .limit-fill { height: 100%; background: var(--orange); width: 0%; transition: width 0.5s ease; }
+        
+        .cat-list-edit { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; margin-top: 10px; }
+        .cat-item-edit { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border); }
+        .cat-btn-add { background: var(--primary); color: white; border: none; padding: 0 15px; border-radius: 6px; cursor: pointer; }
+        
         #printableArea { background: white !important; color: #1e293b !important; padding: 20px; border-radius: 8px; }
         #printableArea * { color: #1e293b !important; border-color: #e2e8f0 !important; }
         .report-list { list-style: none; padding: 0; margin: 0; }
@@ -129,12 +156,7 @@
         .rep-filters { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; }
         .rep-btn { padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 20px; cursor: pointer; color: #64748b; }
         .rep-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-        
         .pdf-btn { width: 100%; background: #334155; color: white; padding: 12px; border:none; border-radius:8px; margin-top:15px; font-weight:bold; cursor:pointer; }
-        
-        .cat-list-edit { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; margin-top: 10px; }
-        .cat-item-edit { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border); }
-        .cat-btn-add { background: var(--primary); color: white; border: none; padding: 0 15px; border-radius: 6px; cursor: pointer; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -143,6 +165,8 @@
 
     <div class="container">
         <div class="top-btns">
+            <span class="sandbox-badge">🧪 MODO SANDBOX</span>
+            <button class="config-btn" onclick="toggleSandbox()" id="btnSandbox" title="Simulador">🧪</button>
             <button class="config-btn" onclick="toggleTheme()" id="btnTheme">🌑</button>
             <button class="config-btn" onclick="togglePrivacy()" id="btnPrivacy">👁️</button>
             <button class="config-btn" onclick="openCatModal()">🏷️</button>
@@ -171,7 +195,8 @@
                     <div class="chart-controls">
                         <button class="chart-toggle active" onclick="setChartType('bar')">Fluxo</button>
                         <button class="chart-toggle" onclick="setChartType('pie')">Pizza</button>
-                        <button class="chart-toggle" onclick="setChartType('line')">Evolução</button> </div>
+                        <button class="chart-toggle" onclick="setChartType('line')">Evolução</button>
+                    </div>
                     <div id="pieFilterOpts" class="pie-filters" style="display:none;">
                         <button class="pie-filter-btn active" onclick="setPieFilter('all')">Tudo</button>
                         <button class="pie-filter-btn" onclick="setPieFilter('debit')">Débito</button>
@@ -262,8 +287,9 @@
             <h3>Configurações</h3>
             <div class="modal-opt"><label>Limite Cartão</label><input type="number" id="setupLimit"></div>
             <div class="modal-opt"><label>Meta Diária</label><input type="number" id="setupGoal"></div>
-            <div style="margin-top:15px; padding-top:15px; border-top:1px dashed var(--border)">
-                <button style="background:#3b82f6; color:white; border:none; padding:10px; width:100%; border-radius:6px; margin-bottom:5px" onclick="exportData()">⬇️ Backup</button>
+            <div class="backup-section" style="border-top:1px dashed var(--border); padding-top:15px; margin-top:15px">
+                <h4>Dados</h4>
+                <button style="background:#3b82f6; color:white; border:none; padding:10px; width:100%; border-radius:6px; margin-bottom:10px" onclick="exportData()">⬇️ Backup</button>
                 <button style="background:var(--text); color:var(--card); border:none; padding:10px; width:100%; border-radius:6px; opacity:0.8" onclick="document.getElementById('importFile').click()">⬆️ Restaurar</button>
                 <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(this)">
             </div>
@@ -309,6 +335,7 @@
         let myChart = null; let selectedWishIndex = null;
         let chartType = 'bar'; let currentReportFilter = 'all'; let pieFilter = 'all'; 
         let privacyMode = false; let isDark = false;
+        let isSandbox = false; // FLAG DO SANDBOX
 
         const defaultExp = [{n:'Casa',i:'🏠'},{n:'Alim.',i:'🍔'},{n:'Transp.',i:'🚗'},{n:'Pessoal',i:'👤'},{n:'Lazer',i:'🎉'}];
         const defaultInc = [{n:'Salário',i:'💰'},{n:'Vendas',i:'🏷️'}];
@@ -335,15 +362,43 @@
             if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.log);
         };
 
+        // --- SANDBOX LOGIC ---
+        function toggleSandbox() {
+            if (!isSandbox) {
+                // ENTRAR
+                if(!confirm("Entrar no Modo Simulação? Nada será salvo.")) return;
+                isSandbox = true;
+                document.body.classList.add('sandbox-active');
+                document.getElementById('btnSandbox').innerText = '🚪';
+                alert("🧪 MODO SIMULAÇÃO ATIVO\n\nPode mexer à vontade. Nada será gravado.");
+            } else {
+                // SAIR
+                if(!confirm("Sair do simulador e restaurar dados reais?")) return;
+                isSandbox = false;
+                document.body.classList.remove('sandbox-active');
+                document.getElementById('btnSandbox').innerText = '🧪';
+                // Recarrega do storage para limpar sujeira
+                dbMensal = {}; 
+                render();
+            }
+        }
+
         function getKey(a,m) { return `appV25_m_${a}_${m}`; }
         function getDB(a,m) { 
             const k=getKey(a,m); 
-            if(!dbMensal[k]) { const s=localStorage.getItem(k); try{ dbMensal[k]=s?JSON.parse(s):{in:[],debit:[],credit:[],invoicePaid:0}; }catch(e){ dbMensal[k]={in:[],debit:[],credit:[],invoicePaid:0}; } } 
+            // Se tiver em memória, usa. Se não, busca.
+            if(!dbMensal[k]) { 
+                const s=localStorage.getItem(k); 
+                try{ dbMensal[k]=s?JSON.parse(s):{in:[],debit:[],credit:[],invoicePaid:0}; }catch(e){ dbMensal[k]={in:[],debit:[],credit:[],invoicePaid:0}; } 
+            } 
             return dbMensal[k]; 
         }
         function save() { 
             const k=getKey(dataNav.getFullYear(),dataNav.getMonth()); 
-            localStorage.setItem(k,JSON.stringify(getDB(dataNav.getFullYear(),dataNav.getMonth()))); 
+            // NO SANDBOX NÃO GRAVA NO LOCALSTORAGE
+            if (!isSandbox) {
+                localStorage.setItem(k,JSON.stringify(getDB(dataNav.getFullYear(),dataNav.getMonth()))); 
+            }
             render(); 
         }
 
@@ -356,7 +411,7 @@
         }
         function toggleTheme() { isDark=!isDark; document.body.classList.toggle('dark-mode'); localStorage.setItem('appV25_theme',isDark?'dark':'light'); }
 
-        // --- CHART & EVOLUÇÃO ---
+        // --- CHART ---
         function setChartType(t) { chartType=t; document.querySelectorAll('.chart-toggle').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('pieFilterOpts').style.display=t==='pie'?'flex':'none'; renderChart(dataNav.getFullYear(),dataNav.getMonth()); }
         function setPieFilter(f) { pieFilter=f; document.querySelectorAll('.pie-filter-btn').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); renderChart(dataNav.getFullYear(),dataNav.getMonth()); }
         function renderChart(cA, cM) {
@@ -373,6 +428,9 @@
                     let rep=calcularRepasses(lA,lM);
                     let k=getKey(lA,lM);
                     let db=localStorage.getItem(k)?JSON.parse(localStorage.getItem(k)):{in:[],debit:[],credit:[]};
+                    // Se estiver no mes atual e em sandbox, usa os dados da memória
+                    if(isSandbox && lA===dataNav.getFullYear() && lM===dataNav.getMonth()) db = getDB(lA, lM);
+
                     let mIn = db.in.reduce((a,b)=>a+b.v,0) + rep.sobra;
                     let mDeb = db.debit.reduce((a,b)=>a+b.v,0);
                     let mFat = db.credit.reduce((a,b)=>a+b.v,0) + rep.divida;
@@ -382,30 +440,16 @@
                 }
                 myChart = new Chart(ctx, { type: 'bar', data: { labels, datasets: [ { label: 'Saldo', data: dataS, backgroundColor: dataS.map(v=>v<0?'#ef4444':'#10b981'), borderRadius:4, order:2 }, { label: 'Fatura', data: dataF, type:'line', borderColor: textColor, borderWidth:2, pointRadius:3, order:1 } ] }, options: { responsive:true, maintainAspectRatio:false, scales: { y: { ticks:{color:textColor}, grid:{color:gridColor} }, x: { ticks:{color:textColor}, grid:{display:false} } }, plugins: { legend: { labels: { color: textColor } } } } });
             } else if (chartType === 'line') {
-                // GRÁFICO DE EVOLUÇÃO
                 const d = getDB(cA,cM);
                 const rep = calcularRepasses(cA, cM);
                 const lastDay = new Date(cA, cM+1, 0).getDate();
                 let labels = [], data = [], currentBal = rep.sobra;
-                
-                // Mapeia todas as transações por dia
                 const transactions = new Array(lastDay + 1).fill(0);
                 d.in.forEach(i => transactions[i.d||1] += i.v);
                 d.debit.forEach(i => transactions[i.d||1] -= i.v);
                 d.credit.forEach(i => transactions[i.d||1] -= i.v);
-
-                for(let i=1; i<=lastDay; i++) {
-                    currentBal += transactions[i];
-                    labels.push(i);
-                    data.push(currentBal);
-                }
-
-                myChart = new Chart(ctx, {
-                    type: 'line',
-                    data: { labels, datasets: [{ label: 'Saldo Acumulado', data, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 }] },
-                    options: { responsive:true, maintainAspectRatio:false, scales: { y: { ticks:{color:textColor}, grid:{color:gridColor} }, x: { ticks:{color:textColor}, grid:{display:false} } }, plugins: { legend: { labels: { color: textColor } } } }
-                });
-
+                for(let i=1; i<=lastDay; i++) { currentBal += transactions[i]; labels.push(i); data.push(currentBal); }
+                myChart = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label: 'Saldo', data, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 }] }, options: { responsive:true, maintainAspectRatio:false, scales: { y: { ticks:{color:textColor}, grid:{color:gridColor} }, x: { ticks:{color:textColor}, grid:{display:false} } }, plugins: { legend: { labels: { color: textColor } } } } });
             } else {
                 const db = getDB(cA,cM);
                 const cats = {};
@@ -415,7 +459,7 @@
             }
         }
 
-        // --- RELATÓRIO (FIX) ---
+        // --- RELATÓRIO ---
         function updateReport(f) {
             try {
                 document.querySelectorAll('.rep-btn').forEach(b=>b.classList.remove('active')); event.target.classList.add('active');
@@ -441,16 +485,9 @@
                     html += `<li class="report-row"><div class="report-left"><span class="report-day">${day}</span><span>${i.n}</span></div><div class="report-val ${cls}">${sig} ${fmt(i.v)}</div></li>`;
                 });
                 html += '</ul>';
-                
                 const sumIn = list.filter(i=>i.t==='in').reduce((a,b)=>a+b.v,0);
                 const sumOut = list.filter(i=>i.t==='out').reduce((a,b)=>a+b.v,0);
-                
-                html += `<div style="margin-top:15px; border-top:2px solid #e2e8f0; padding-top:10px">
-                    <div style="display:flex;justify-content:space-between"><span>Entradas:</span> <strong class="rep-green">${fmt(sumIn)}</strong></div>
-                    <div style="display:flex;justify-content:space-between"><span>Saídas:</span> <strong class="rep-red">${fmt(sumOut)}</strong></div>
-                    <div style="display:flex;justify-content:space-between; margin-top:5px; font-size:1.1rem; font-weight:bold"><span>Saldo:</span> <span>${fmt(sumIn-sumOut)}</span></div>
-                </div>`;
-
+                html += `<div style="margin-top:15px; border-top:2px solid #e2e8f0; padding-top:10px"><div style="display:flex;justify-content:space-between"><span>Entradas:</span> <strong class="rep-green">${fmt(sumIn)}</strong></div><div style="display:flex;justify-content:space-between"><span>Saídas:</span> <strong class="rep-red">${fmt(sumOut)}</strong></div><div style="display:flex;justify-content:space-between; margin-top:5px; font-size:1.1rem; font-weight:bold"><span>Saldo:</span> <span>${fmt(sumIn-sumOut)}</span></div></div>`;
                 document.getElementById('reportContent').innerHTML = html;
                 const mName = dataNav.toLocaleString('pt-BR',{month:'long', year:'numeric'});
                 document.getElementById('repSubtitle').innerText = mName.charAt(0).toUpperCase() + mName.slice(1);
@@ -459,41 +496,26 @@
         function openReport() { updateReport('all'); document.getElementById('reportModal').style.display='flex'; }
 
         function exportPDF() {
-            const btn = document.getElementById('btnPdf');
-            const originalText = btn.innerText;
-            btn.innerText = "⏳ Gerando...";
-            
+            const btn = document.getElementById('btnPdf'); const originalText = btn.innerText; btn.innerText = "⏳ Gerando...";
             setTimeout(() => {
-                const original = document.getElementById('printableArea');
-                const clone = original.cloneNode(true);
+                const original = document.getElementById('printableArea'); const clone = original.cloneNode(true);
                 clone.style.width = '700px'; clone.style.display = 'block';
-                const tempDiv = document.createElement('div');
-                tempDiv.style.position = 'absolute'; tempDiv.style.left = '-9999px'; tempDiv.style.top = '0';
+                const tempDiv = document.createElement('div'); tempDiv.style.position = 'absolute'; tempDiv.style.left = '-9999px'; tempDiv.style.top = '0';
                 tempDiv.appendChild(clone); document.body.appendChild(tempDiv);
-                
                 const opt = { margin: 10, filename: `Extrato_${dataNav.getMonth()+1}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-                html2pdf().set(opt).from(clone).save().then(() => { 
-                    document.body.removeChild(tempDiv); 
-                    btn.innerText = originalText;
-                });
+                html2pdf().set(opt).from(clone).save().then(() => { document.body.removeChild(tempDiv); btn.innerText = originalText; });
             }, 100);
         }
 
-        // --- RENDERIZADOR ---
+        // --- RENDER ---
         function render() {
             const a = dataNav.getFullYear(); const m = dataNav.getMonth();
             const d = getDB(a, m);
             const yStr = a; const mStr = String(m + 1).padStart(2, '0');
             document.getElementById('navMonth').value = `${yStr}-${mStr}`;
             const lastDay = new Date(a, m + 1, 0).getDate();
-            
-            // Set inputs date to TODAY if current month
-            const todayISO = new Date().toISOString().split('T')[0];
             const isCurrent = (a === hoje.getFullYear() && m === hoje.getMonth());
-            ['inDate', 'debDate', 'credDate'].forEach(id => { 
-                const el = document.getElementById(id); 
-                el.value = isCurrent ? hoje.getDate() : 1;
-            });
+            ['inDate', 'debDate', 'credDate'].forEach(id => { document.getElementById(id).value = isCurrent ? hoje.getDate() : 1; });
 
             const rep = calcularRepasses(a, m);
             const sIn = d.in.reduce((acc, x) => acc + x.v, 0);
@@ -523,10 +545,8 @@
             const ul = document.getElementById(id); ul.innerHTML = "";
             if(extra) { const cls = extra.type === 'debt' ? 'item-special-debt' : 'item-special'; ul.innerHTML += `<li class="item ${cls}"><div>${extra.n}</div><strong class="blur-target">${fmt(extra.v)}</strong></li>`; }
             if(arr.length === 0 && !extra) { ul.innerHTML = "<div class='empty-msg'>Nenhum lançamento.</div>"; return; }
-            
             const mapped = arr.map((item, index) => ({...item, originalIndex: index}));
             mapped.sort((a, b) => (a.d || 0) - (b.d || 0));
-
             mapped.forEach((it) => {
                 const ic = it.c ? it.c.split(' ')[0] : '💸'; 
                 const dayStr = String(it.d || 1).padStart(2, '0');
@@ -535,28 +555,6 @@
             });
         }
 
-        function updateCalendar(a, m, ld) { 
-            const g = document.getElementById('gridCal'); g.innerHTML=""; 
-            const d = getDB(a, m);
-            const spendingByDay = {};
-            let maxSpend = 0;
-            [...d.debit, ...d.credit].forEach(it => {
-                const day = it.d || 1;
-                spendingByDay[day] = (spendingByDay[day] || 0) + it.v;
-                if(spendingByDay[day] > maxSpend) maxSpend = spendingByDay[day];
-            });
-            for(let i=1; i<=ld; i++) { 
-                const div = document.createElement('div'); 
-                let className = `day ${i===diaSel?'active':''} ${i===hoje.getDate()&&m===hoje.getMonth()&&a===hoje.getFullYear()?'today':''}`;
-                if (spendingByDay[i] > 0) {
-                    const ratio = spendingByDay[i] / (maxSpend || 1);
-                    if (ratio > 0.6) className += ' heat-3'; else if (ratio > 0.3) className += ' heat-2'; else className += ' heat-1';
-                }
-                div.className = className; div.innerText = i; div.onclick = () => { diaSel=i; render(); }; g.appendChild(div); 
-            } 
-        }
-
-        // --- SUPPORT ---
         function toggleBox(id) { document.getElementById(id).classList.toggle('collapsed'); }
         function add(tipo) { const d=getDB(dataNav.getFullYear(),dataNav.getMonth()); let nId,vId,dId,cId,oId,tArr; if(tipo==='in'){nId='inNome';vId='inVal';dId='inDate';cId='catIn';oId='inObs';tArr=d.in;}else if(tipo==='debit'){nId='debNome';vId='debVal';dId='debDate';cId='catDeb';oId='debObs';tArr=d.debit;}else if(tipo==='credit'){nId='credNome';vId='credVal';dId='credDate';cId='catCred';oId='credObs';tArr=d.credit;}else{const n=document.getElementById('wishNome').value;const v=parseFloat(document.getElementById('wishVal').value);if(n&&v>0){dbGlobal.wishes.push({n,v});localStorage.setItem('appV25_g',JSON.stringify(dbGlobal));document.getElementById('wishNome').value='';document.getElementById('wishVal').value='';render();}else alert("Preencha corretamente.");return;} const elN=document.getElementById(nId); const elV=document.getElementById(vId); const elObs=document.getElementById(oId); const elDate=document.getElementById(dId); if(elN&&elV){ const n=elN.value; const v=parseFloat(elV.value); const o=elObs?elObs.value:''; if(n&&!isNaN(v)&&v>0){ const day=parseInt(elDate.value)||1; const cat=document.getElementById(cId).value; tArr.push({n,v,d:day,c:cat,o:o}); save(); elN.value=''; elV.value=''; if(elObs)elObs.value=''; render(); }else alert("Preencha corretamente."); } }
         function del(t,i) { if(confirm("Apagar?")){ if(t==='wishes'){dbGlobal.wishes.splice(i,1);localStorage.setItem('appV25_g',JSON.stringify(dbGlobal));render();}else{getDB(dataNav.getFullYear(),dataNav.getMonth())[t].splice(i,1);save();} } }
@@ -606,9 +604,36 @@
             });
             return { sobra, divida };
         }
-        function payInvoice() { const val = parseFloat(document.getElementById('invPaid').value); if (isNaN(val) && val !== 0) { alert("Valor inválido."); return; } const db = getDB(dataNav.getFullYear(), dataNav.getMonth()); db.invoicePaid = val; save(); alert("Pagamento atualizado com sucesso!"); }
+        function updateCalendar(a, m, ld) { 
+            const g = document.getElementById('gridCal'); g.innerHTML=""; 
+            const d = getDB(a, m);
+            const spendingByDay = {};
+            let maxSpend = 0;
+            [...d.debit, ...d.credit].forEach(it => {
+                const day = it.d || 1;
+                spendingByDay[day] = (spendingByDay[day] || 0) + it.v;
+                if(spendingByDay[day] > maxSpend) maxSpend = spendingByDay[day];
+            });
+            for(let i=1; i<=ld; i++) { 
+                const div = document.createElement('div'); 
+                let className = `day ${i===diaSel?'active':''} ${i===hoje.getDate()&&m===hoje.getMonth()&&a===hoje.getFullYear()?'today':''}`;
+                if (spendingByDay[i] > 0) {
+                    const ratio = spendingByDay[i] / (maxSpend || 1);
+                    if (ratio > 0.6) className += ' heat-3'; else if (ratio > 0.3) className += ' heat-2'; else className += ' heat-1';
+                }
+                div.className = className; div.innerText = i; div.onclick = () => { diaSel=i; render(); }; g.appendChild(div); 
+            } 
+        }
         
-        // --- IA INTELIGENTE ---
+        function payInvoice() { 
+            const val = parseFloat(document.getElementById('invPaid').value);
+            if (isNaN(val) && val !== 0) { alert("Valor inválido."); return; }
+            const db = getDB(dataNav.getFullYear(), dataNav.getMonth());
+            db.invoicePaid = val;
+            save(); 
+            alert("Pagamento atualizado com sucesso!");
+        }
+        
         function generateAdvice(totalVal) {
             const daily = settings.dailyGoal || 30; 
             const monthlyCap = daily * 30; 
