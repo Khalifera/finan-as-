@@ -26,13 +26,13 @@
       "icons": [{ "src": "icon.png", "sizes": "192x192" }]
     },
     {
-      "name": "Nova Despesa Débito",
+      "name": "Novo Débito",
       "short_name": "Débito",
       "url": "index.html?acao=novo_debito",
       "icons": [{ "src": "icon.png", "sizes": "192x192" }]
     },
     {
-      "name": "Nova Despesa Crédito",
+      "name": "Novo Crédito",
       "short_name": "Crédito",
       "url": "index.html?acao=novo_credito",
       "icons": [{ "src": "icon.png", "sizes": "192x192" }]
