@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestor V28.4 - IA Fix</title>
+    <title>Gestor V29 - Chronos</title>
     
     <meta name="theme-color" content="#2563eb">
     <link rel="manifest" href="manifest.json">
@@ -117,7 +117,21 @@
         .list { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
         .item { padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 0.9rem; animation: fadeIn 0.2s; }
         .item-main { display: flex; justify-content: space-between; align-items: center; }
-        .day-badge { background: var(--border); color: var(--text); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 8px; font-weight: bold; min-width: 25px; text-align: center; display: inline-block; }
+        
+        /* Badge de Dia (Estilo V29) */
+        .day-badge { 
+            background: var(--primary); 
+            color: white; 
+            padding: 2px 6px; 
+            border-radius: 6px; 
+            font-size: 0.7rem; 
+            margin-right: 8px; 
+            font-weight: bold; 
+            min-width: 28px; 
+            text-align: center; 
+            display: inline-block; 
+        }
+        
         .del { cursor: pointer; color: var(--text-muted); margin-left: 10px; padding: 0 5px; } .del:hover { color: var(--red); }
 
         /* AI Tips */
@@ -418,7 +432,6 @@
                 } else { dbGlobal.catExp=[...defaultExp]; dbGlobal.catInc=[...defaultInc]; }
             } catch(e) { dbGlobal={wishes:[],fixed:[],catExp:[...defaultExp],catInc:[...defaultInc]}; }
 
-            // PRIVACY
             if(localStorage.getItem('appV25_privacy')==='true') {
                 privacyMode = true; 
                 document.body.classList.add('privacy-on');
@@ -446,7 +459,7 @@
             render(); 
         }
 
-        // --- OLHINHO CORRIGIDO ---
+        // --- SISTEMAS ---
         function togglePrivacy() { 
             privacyMode = !privacyMode; 
             if(privacyMode) document.body.classList.add('privacy-on');
@@ -510,40 +523,20 @@
             }
         }
 
-        // --- IA INTELIGENTE (V28.4) ---
+        // --- IA (V28.4) ---
         function generateAdvice(totalVal) {
-            const daily = settings.dailyGoal || 30; // Padrão 30 se não tiver
-            const monthlyCap = daily * 30; // Capacidade mensal
+            const daily = settings.dailyGoal || 30; 
+            const monthlyCap = daily * 30; 
             let html = `<div class='sug-list' style='max-height:150px; overflow-y:auto; font-size:0.8rem'>`;
-            
-            html += `<div style='padding:5px; border-bottom:1px solid rgba(0,0,0,0.1); margin-bottom:5px'>
-                🎯 Meta Diária: <strong>${fmt(daily)}</strong> (Capacidade: ~${fmt(monthlyCap)}/mês)
-            </div>`;
-
+            html += `<div style='padding:5px; border-bottom:1px solid rgba(0,0,0,0.1); margin-bottom:5px'>🎯 Meta Diária: <strong>${fmt(daily)}</strong> (Capacidade: ~${fmt(monthlyCap)}/mês)</div>`;
             for (let p = 1; p <= 12; p++) {
                 let parcVal = totalVal / p;
                 let safety = "";
                 let color = "var(--text-muted)";
-
-                // Lógica de Segurança
-                if (parcVal > monthlyCap) {
-                    safety = "🔴 Arriscado";
-                    color = "var(--red)";
-                } else if (parcVal > (monthlyCap * 0.6)) {
-                    // Se a parcela consome mais de 60% da capacidade
-                    const monthName = new Date(dataNav.getFullYear(), dataNav.getMonth() + 1).toLocaleString('pt-BR', {month:'short'});
-                    safety = `⚠️ Esperar 1 mês`;
-                    color = "var(--orange)";
-                } else {
-                    const monthName = dataNav.toLocaleString('pt-BR', {month:'short'});
-                    safety = `✅ Agora (${monthName})`;
-                    color = "var(--green)";
-                }
-
-                html += `<div class="sug-item" style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #eee; align-items:center">
-                    <span>${p}x de <strong>${fmt(parcVal)}</strong></span>
-                    <span style="color:${color}; font-weight:bold; font-size:0.75rem">${safety}</span>
-                </div>`;
+                if (parcVal > monthlyCap) { safety = "🔴 Arriscado"; color = "var(--red)"; } 
+                else if (parcVal > (monthlyCap * 0.6)) { safety = `⚠️ Esperar 1 mês`; color = "var(--orange)"; } 
+                else { const monthName = dataNav.toLocaleString('pt-BR', {month:'short'}); safety = `✅ Agora (${monthName})`; color = "var(--green)"; }
+                html += `<div class="sug-item" style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #eee; align-items:center"><span>${p}x de <strong>${fmt(parcVal)}</strong></span><span style="color:${color}; font-weight:bold; font-size:0.75rem">${safety}</span></div>`;
             }
             html += "</div>";
             return `<details style='margin-top:5px; background:var(--border); padding:8px; border-radius:6px'><summary style='cursor:pointer; font-weight:bold; color:var(--purple); list-style:none'>💡 Ver Parcelamento (IA)</summary>${html}</details>`;
@@ -574,7 +567,9 @@
                 d.debit.forEach(i=>list.push({...i, t:'out'}));
                 d.credit.forEach(i=>list.push({...i, t:'out'}));
             }
+            // CRONOLOGIA NO REPORT
             list.sort((a,b) => (a.d||0) - (b.d||0));
+            
             let html = '<ul class="report-list">';
             if(list.length === 0) html += '<li style="text-align:center; padding:10px; color:#999">Sem dados</li>';
             list.forEach(i => {
@@ -593,6 +588,7 @@
         }
         function openReport() { updateReport('all'); document.getElementById('reportModal').style.display='flex'; }
 
+        // --- RENDERIZADOR ---
         function render() {
             const a = dataNav.getFullYear(); const m = dataNav.getMonth();
             const d = getDB(a, m);
@@ -625,11 +621,46 @@
             updateCalendar(a, m, lastDay); updateGlobalLimit(); renderChart(a, m);
         }
 
+        // --- RENDER LISTA COM CRONOLOGIA (V29) ---
         function renderList(id, arr, type, extra) {
             const ul = document.getElementById(id); ul.innerHTML = "";
-            if(extra) { const cls = extra.type === 'debt' ? 'item-special-debt' : 'item-special'; ul.innerHTML += `<li class="item ${cls}"><div>${extra.n}</div><strong class="blur-target">${fmt(extra.v)}</strong></li>`; }
-            if(arr.length === 0 && !extra) { ul.innerHTML = "<div class='empty-msg'>Nenhum lançamento.</div>"; return; }
-            arr.forEach((it, i) => { const ic = it.c ? it.c.split(' ')[0] : '💸'; ul.innerHTML += `<li class="item"><div class="item-main"><div><span class="day-badge">${it.d||1}</span><span class="cat-icon">${ic}</span><span>${it.n}</span></div><div><strong class="blur-target">${fmt(it.v)}</strong><span class="del" onclick="del('${type}',${i})">✕</span></div></div></li>`; });
+            
+            // Item Extra (Sobra/Dívida)
+            if(extra) { 
+                const cls = extra.type === 'debt' ? 'item-special-debt' : 'item-special'; 
+                ul.innerHTML += `<li class="item ${cls}"><div>${extra.n}</div><strong class="blur-target">${fmt(extra.v)}</strong></li>`; 
+            }
+            
+            if(arr.length === 0 && !extra) { 
+                ul.innerHTML = "<div class='empty-msg'>Nenhum lançamento.</div>"; 
+                return; 
+            }
+
+            // 1. Mapear índice original
+            const mapped = arr.map((item, index) => ({...item, originalIndex: index}));
+            
+            // 2. Ordenar por dia (Cronologia)
+            mapped.sort((a, b) => (a.d || 0) - (b.d || 0));
+
+            // 3. Renderizar
+            mapped.forEach((it) => { 
+                const ic = it.c ? it.c.split(' ')[0] : '💸'; 
+                const dayStr = String(it.d || 1).padStart(2, '0');
+                ul.innerHTML += `
+                <li class="item">
+                    <div class="item-main">
+                        <div>
+                            <span class="day-badge">${dayStr}</span>
+                            <span class="cat-icon">${ic}</span>
+                            <span>${it.n}</span>
+                        </div>
+                        <div>
+                            <strong class="blur-target">${fmt(it.v)}</strong>
+                            <span class="del" onclick="del('${type}',${it.originalIndex})">✕</span>
+                        </div>
+                    </div>
+                </li>`; 
+            });
         }
 
         function toggleBox(id) { document.getElementById(id).classList.toggle('collapsed'); }
@@ -684,7 +715,6 @@
         }
         function updateCalendar(a, m, ld) { const g=document.getElementById('gridCal'); g.innerHTML=""; for(let i=1;i<=ld;i++){ const d=document.createElement('div'); d.className=`day ${i===diaSel?'active':''} ${i===hoje.getDate()&&m===hoje.getMonth()&&a===hoje.getFullYear()?'today':''}`; d.innerText=i; d.onclick=()=>{diaSel=i;render();}; g.appendChild(d); } }
         
-        // --- PAGAR FATURA ---
         function payInvoice() { 
             const val = parseFloat(document.getElementById('invPaid').value);
             if (isNaN(val) && val !== 0) { alert("Valor inválido."); return; }
